@@ -1,0 +1,12 @@
+{
+  "name": "certificate-registry",
+  "version": "1.0.0",
+  "description": "Blockchain certificate issuance and verification system",
+  "scripts": {
+    "test": "hardhat test"
+  },
+  "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^3.0.0",
+    "hardhat": "^2.22.0"
+  }
+}

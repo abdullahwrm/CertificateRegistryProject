@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Group 8 Certificate Registry</title>
+  <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+</head>
+<body>
+  <h2>Certificate Registry DApp</h2>
+
+  <!-- Connect Wallet -->
+  <button onclick="connectWallet()">Connect Wallet</button>
+  <p id="walletStatus">Wallet Not Connected</p>
+
+  <hr>
+
+  <!-- Approve Issuer -->
+  <h3>Approve Issuer</h3>
+  <input id="issuerAddress" placeholder="Issuer Address" size="42">
+  <button onclick="approveIssuer()">Approve Issuer</button>
+
+  <hr>
+
+  <!-- Issue Certificate -->
+  <h3>Issue Certificate</h3>
+  <input id="certId" placeholder="Certificate ID (e.g. 001)">
+  <input id="certHash" placeholder="Certificate Hash">
+  <input id="studentAddress" placeholder="Student Address" size="42">
+  <button onclick="issueCertificate()">Issue Certificate</button>
+
+  <hr>
+
+  <!-- Verify Certificate -->
+  <h3>Verify Certificate</h3>
+  <input id="verifyId" placeholder="Certificate ID">
+  <button onclick="verifyCertificate()">Verify Certificate</button>
+
+  <hr>
+
+  <!-- Revoke Certificate -->
+  <h3>Revoke Certificate</h3>
+  <input id="revokeId" placeholder="Certificate ID">
+  <button onclick="revokeCertificate()">Revoke Certificate</button>
+
+  <script>
+    // ======================
+    // Connect to MetaMask
+    // ======================
+    let provider;
+    let signer;
+    let contract;
+
+    const CONTRACT_ADDRESS = "0x5FbDB2315678afecb367f032d93F642f64180aa3";
+
+    const CONTRACT_ABI = [
+      {
+        "inputs": [],
+        "stateMutability": "nonpayable",
+        "type": "constructor"
+      },
+      {
+        "inputs": [
+          { "internalType": "address", "name": "issuer", "type": "address" }
+        ],
+        "name": "approveIssuer",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+      },
+      {
+        "inputs": [{ "internalType": "address", "name": "", "type": "address" }],
+        "name": "approvedIssuers",
+        "outputs": [{ "internalType": "bool", "name": "", "type": "bool" }],
+        "stateMutability": "view",
+        "type": "function"
+      },
+      {
+        "inputs": [{ "internalType": "bytes32", "name": "", "type": "bytes32" }],
+        "name": "certificates",
+        "outputs": [
+          { "internalType": "bytes32", "name": "certHash", "type": "bytes32" },
+          { "internalType": "address", "name": "issuedTo", "type": "address" },
+          { "internalType": "address", "name": "issuedBy", "type": "address" },
+          { "internalType": "uint256", "name": "issuedAt", "type": "uint256" },
+          { "internalType": "bool", "name": "revoked", "type": "bool" }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+      },
+      {
+        "inputs": [
+          { "internalType": "bytes32", "name": "certId", "type": "bytes32" },
+          { "internalType": "bytes32", "name": "certHash", "type": "bytes32" },
+          { "internalType": "address", "name": "student", "type": "address" }
+        ],
+        "name": "issueCertificate",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+      },
+      {
+        "inputs": [{ "internalType": "bytes32", "name": "certId", "type": "bytes32" }],
+        "name": "revokeCertificate",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+      }
+    ];
+
+    // ======================
+    // Connect Wallet
+    // ======================
+    async function connectWallet() {
+      try {
+        if (!window.ethereum) {
+          alert("MetaMask not installed!");
+          return;
+        }
+
+        provider = new ethers.providers.Web3Provider(window.ethereum);
+        await provider.send("eth_requestAccounts", []);
+        signer = provider.getSigner();
+
+        document.getElementById("walletStatus").innerText = "Wallet Connected ✔";
+
+        contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
+        console.log("Contract Loaded:", contract);
+      } catch (err) {
+        console.error(err);
+        alert("Failed to connect wallet");
+      }
+    }
+
+    // ======================
+    // Approve Issuer
+    // ======================
+    async function approveIssuer() {
+      try {
+        const issuer = document.getElementById("issuerAddress").value;
+        if (!ethers.utils.isAddress(issuer)) {
+          alert("Invalid issuer address");
+          return;
+        }
+
+        const tx = await contract.approveIssuer(issuer);
+        await tx.wait();
+        alert("Issuer approved!");
+      } catch (err) {
+        console.error(err);
+        alert("Error approving issuer");
+      }
+    }
+
+    // ======================
+    // Issue Certificate
+    // ======================
+    async function issueCertificate() {
+      try {
+        let certId = document.getElementById("certId").value;
+        let certHash = document.getElementById("certHash").value;
+        let student = document.getElementById("studentAddress").value;
+
+        if (!ethers.utils.isAddress(student)) {
+          alert("Invalid student address");
+          return;
+        }
+
+        // Ensure strings are <32 chars
+        if (certId.length > 31 || certHash.length > 31) {
+          alert("certId and certHash must be <= 31 characters");
+          return;
+        }
+
+        certId = ethers.utils.formatBytes32String(certId);
+        certHash = ethers.utils.formatBytes32String(certHash);
+
+        const tx = await contract.issueCertificate(certId, certHash, student);
+        await tx.wait();
+
+        alert("Certificate Issued!");
+      } catch (err) {
+        console.error(err);
+        alert("Error issuing certificate. Maybe it already exists.");
+      }
+    }
+
+    // ======================
+    // Verify Certificate (Safe)
+    // ======================
+    async function verifyCertificate() {
+      try {
+        let id = document.getElementById("verifyId").value;
+        if (id.length > 31) {
+          alert("Certificate ID too long");
+          return;
+        }
+
+        const certId = ethers.utils.formatBytes32String(id);
+
+        // Read certificate mapping directly
+        const cert = await contract.certificates(certId);
+
+        if (cert.issuedAt.toNumber() === 0) {
+          alert("Certificate does not exist");
+          return;
+        }
+
+        const valid = !cert.revoked;
+        alert(valid ? "VALID Certificate" : "Certificate REVOKED");
+      } catch (err) {
+        console.error("Error verifying certificate:", err);
+        alert("Error: Cannot verify certificate");
+      }
+    }
+
+    // ======================
+    // Revoke Certificate
+    // ======================
+    async function revokeCertificate() {
+      try {
+        let id = document.getElementById("revokeId").value;
+        if (id.length > 31) {
+          alert("Certificate ID too long");
+          return;
+        }
+
+        const certId = ethers.utils.formatBytes32String(id);
+        const tx = await contract.revokeCertificate(certId);
+        await tx.wait();
+
+        alert("Certificate Revoked!");
+      } catch (err) {
+        console.error(err);
+        alert("Error revoking certificate");
+      }
+    }
+  </script>
+</body>
+</html>
