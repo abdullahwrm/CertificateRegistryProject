@@ -23,9 +23,13 @@
 
   <!-- Issue Certificate -->
   <h3>Issue Certificate</h3>
-  <input id="certId" placeholder="Certificate ID (e.g. 001)">
-  <input id="certHash" placeholder="Certificate Hash">
-  <input id="studentAddress" placeholder="Student Address" size="42">
+  <p>Enter details below to auto-generate the SHA-256 Hash:</p>
+  
+  <input id="certId" placeholder="Certificate ID (e.g. 001)" oninput="autoComputeHash()">
+  <input id="studentAddress" placeholder="Student Address" size="42" oninput="autoComputeHash()">
+  <p><strong>Calculated Hash (SHA-256):</strong></p>
+  <div id="hashDisplay" style="background:#f0f0f0; padding:10px; font-family:monospace; word-wrap:break-word; margin-bottom:10px;">Waiting for input...</div>
+  
   <button onclick="issueCertificate()">Issue Certificate</button>
 
   <hr>
@@ -43,9 +47,7 @@
   <button onclick="revokeCertificate()">Revoke Certificate</button>
 
   <script>
-    // ======================
     // Connect to MetaMask
-    // ======================
     let provider;
     let signer;
     let contract;
@@ -107,9 +109,8 @@
       }
     ];
 
-    // ======================
+  
     // Connect Wallet
-    // ======================
     async function connectWallet() {
       try {
         if (!window.ethereum) {
@@ -131,9 +132,7 @@
       }
     }
 
-    // ======================
     // Approve Issuer
-    // ======================
     async function approveIssuer() {
       try {
         const issuer = document.getElementById("issuerAddress").value;
@@ -151,28 +150,48 @@
       }
     }
 
-    // ======================
+    //autoComputeHash
+    function autoComputeHash() {
+      const id = document.getElementById("certId").value;
+      const student = document.getElementById("studentAddress").value;
+
+      if(id && student) {
+        try {
+          // Keccak256(ID + Address)
+          const hash = ethers.utils.keccak256(ethers.utils.toUtf8Bytes(id + student));
+          document.getElementById("hashDisplay").innerText = hash;
+        } catch (e) {
+          console.log("Calculating...");
+        }
+      } else {
+        document.getElementById("hashDisplay").innerText = "Waiting for input...";
+      }
+    }
+  
     // Issue Certificate
-    // ======================
     async function issueCertificate() {
       try {
         let certId = document.getElementById("certId").value;
-        let certHash = document.getElementById("certHash").value;
         let student = document.getElementById("studentAddress").value;
-
+        let certHash = document.getElementById("hashDisplay").innerText;
+        
         if (!ethers.utils.isAddress(student)) {
           alert("Invalid student address");
           return;
         }
 
-        // Ensure strings are <32 chars
-        if (certId.length > 31 || certHash.length > 31) {
+        // Check if the hash has been calculated
+        if (!certHash.startsWith("0x")) {
+          alert("Please enter ID and Address to generate hash first!");
+          return;
+        }
+        
+        if (certId.length > 31) {
           alert("certId and certHash must be <= 31 characters");
           return;
         }
 
         certId = ethers.utils.formatBytes32String(certId);
-        certHash = ethers.utils.formatBytes32String(certHash);
 
         const tx = await contract.issueCertificate(certId, certHash, student);
         await tx.wait();
@@ -184,9 +203,7 @@
       }
     }
 
-    // ======================
     // Verify Certificate (Safe)
-    // ======================
     async function verifyCertificate() {
       try {
         let id = document.getElementById("verifyId").value;
@@ -206,16 +223,18 @@
         }
 
         const valid = !cert.revoked;
-        alert(valid ? "VALID Certificate" : "Certificate REVOKED");
+        if (valid) {
+            alert("VALID Certificate\nHash: " + cert.certHash);
+        } else {
+            alert("Certificate REVOKED");
+        }
       } catch (err) {
         console.error("Error verifying certificate:", err);
         alert("Error: Cannot verify certificate");
       }
     }
 
-    // ======================
     // Revoke Certificate
-    // ======================
     async function revokeCertificate() {
       try {
         let id = document.getElementById("revokeId").value;
