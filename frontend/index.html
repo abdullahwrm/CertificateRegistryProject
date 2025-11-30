@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <title>Group 8 Certificate Registry</title>
+  <link rel="stylesheet" href="style.css">
   <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
 </head>
 <body>
@@ -27,7 +28,7 @@
   
   <input id="certId" placeholder="Certificate ID (e.g. 001)" oninput="autoComputeHash()">
   <input id="studentAddress" placeholder="Student Address" size="42" oninput="autoComputeHash()">
-  <p><strong>Calculated Hash (SHA-256):</strong></p>
+  <p><strong>Calculated Hash:</strong></p>
   <div id="hashDisplay" style="background:#f0f0f0; padding:10px; font-family:monospace; word-wrap:break-word; margin-bottom:10px;">Waiting for input...</div>
   
   <button onclick="issueCertificate()">Issue Certificate</button>
